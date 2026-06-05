@@ -1,6 +1,48 @@
 # navykovalnya-django-react-inertia
 Личный продакшн-проект в связке Django, React JS, Vite, Inertia.js
 
+## Структура проекта
+```text
+django_react_project/
+├── myproject/             # Django проект (настройки, urls)
+│   ├── settings.py
+│   ├── urls.py
+│   ├── templates/
+│   │   └── base.html      # Главный шаблон-обертка
+│   └── ...
+├── backend/               # Папка с модулями приложения
+│   ├── core/              # Модуль для общих утилит (layouts, shared components)
+│   ├── customers/         # Модуль "Покупатели"
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── models.py      # Модели (только для этого модуля)
+│   │   ├── urls.py        # URL-маршруты (только для этого модуля)
+│   │   ├── views.py       # Inertia-представления (только для этого модуля)
+│   │   └── tests.py       # Тесты для модуля
+│   ├── products/          # Модуль "Товары"
+│   │   └── ...            # (аналогичная структура)
+│   └── ...                # Другие модули
+├── frontend/              # Корень фронтенда (React + Vite)
+│   ├── src/
+│   │   ├── pages/         # Компоненты-страницы, которые импортируются в views.py
+│   │   │   ├── Customers/
+│   │   │   │   └── Index.jsx
+│   │   │   └── Products/
+│   │   │       └── Index.jsx
+│   │   ├── layouts/       # Компоненты-обертки (могут подключаться на бэке)
+│   │   ├── components/    # Переиспользуемые React-компоненты
+│   │   ├── main.jsx       # Точка входа (инициализация Inertia)
+│   │   └── app.css        # Стили
+│   ├── index.html
+│   ├── vite.config.js
+│   ├── package.json
+│   └── ...
+├── manage.py
+├── requirements.txt
+└── ...
+```
+
 ## Инструкция по настройке связки Django + React + Inertia.js
 ### Используемые пакеты
 - Python 3.14
@@ -95,3 +137,74 @@
    </html>
    ```
    Тег `{% inertia %}` автоматически подставит `<div id="app" data-page='...'>` с корректным JSON из контекста `page__`.
+
+### Создание frontend-части
+1. Инициализация packege.json и установка зависимостей.
+   ```bash
+   mkdir frontend && cd frontend
+   npm init -y
+   npm install react react-dom @inertiajs/react
+   npm install -D vite @vitejs/plugin-react
+   ```
+2. Создание структуры исходников (см. общую структуру в начале файла)
+   ```bash
+   mkdir -p frontend/src/pages
+   ```
+3. Точка входа React/Inertia - файл `frontend/src/app.jsx`
+   ```jsx
+   import React from 'react';
+   import { createRoot } from 'react-dom/client';
+   import { createInertiaApp } from '@inertiajs/react';
+
+   const page = JSON.parse(document.getElementById('app').dataset.page);
+
+   createInertiaApp({
+      page,
+      resolve: (name) => {
+         const pages = import.meta.glob('./pages/*.jsx', { eager: true });
+         return pages[`./pages/${name}.jsx`];
+      },
+      setup({ el, App, props }) {
+      createRoot(el).render(<App {...props} />);
+      },
+   });
+   ```
+   > Критично: передача `page` (начальных данных) обязательна в `@inertiajs/react v3`.
+4. Создание тестового React-компонента в `frontend/src/pages/Test.jsx`
+   ```jsx
+   import React from 'react';
+
+   export default function Index({ message, count }) {
+      return (
+         <div>
+         <h1>{message}</h1>
+         <p>Счётчик: {count}</p>
+         </div>
+      );
+   }
+   ```
+5. Настройка Vite - файл `frontend/vite.config.js`
+   ```js
+   import { defineConfig } from 'vite';
+   import react from '@vitejs/plugin-react';
+
+   export default defineConfig({
+      plugins: [react()],
+      build: {
+         outDir: 'static',
+         rollupOptions: {
+            input: 'resources/js/app.jsx',
+            output: {
+               entryFileNames: 'js/app.js',
+               chunkFileNames: 'js/[name].js',
+               assetFileNames: 'assets/[name].[ext]',
+            },
+         },
+      },
+   });
+   ```
+6. Сборка фронтенда
+   ```bash
+   npx vite build
+   ```
+   В папке `static/src/` появится `app.js`
